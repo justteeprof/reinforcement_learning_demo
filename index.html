@@ -1,189 +1,170 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Reinforcement Learning ICU Ventilator Game</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: white;
-      text-align: center;
-      padding: 20px;
-    }
+<meta charset="UTF-8">
+<title>RL Ventilator Calibration Game</title>
 
-    h1 {
-      color: #38bdf8;
-    }
+<style>
+body {
+  background: #020617;
+  color: #e5e7eb;
+  font-family: Arial, sans-serif;
+  text-align: center;
+}
 
-    .icu {
-      display: flex;
-      justify-content: space-around;
-      margin-top: 30px;
-      flex-wrap: wrap;
-    }
+h1 { color: #38bdf8; }
 
-    .panel {
-      background: #1e293b;
-      padding: 20px;
-      border-radius: 12px;
-      width: 300px;
-      margin: 10px;
-    }
+.container {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
 
-    label {
-      display: block;
-      margin-top: 10px;
-    }
+.card {
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 12px;
+  width: 300px;
+  margin: 10px;
+}
 
-    input[type=range] {
-      width: 100%;
-    }
+input[type=range] {
+  width: 100%;
+}
 
-    button {
-      margin-top: 15px;
-      padding: 10px 15px;
-      border-radius: 8px;
-      border: none;
-      background: #22c55e;
-      color: black;
-      font-weight: bold;
-      cursor: pointer;
-    }
+button {
+  margin-top: 10px;
+  padding: 10px;
+  background: #22c55e;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
 
-    button:hover {
-      background: #16a34a;
-    }
+.patient {
+  font-size: 80px;
+}
 
-    .patient {
-      font-size: 80px;
-      margin-top: 20px;
-    }
+.good { color: #22c55e; }
+.bad { color: #ef4444; }
 
-    .status {
-      font-size: 20px;
-      margin-top: 10px;
-    }
-
-    .feedback {
-      font-size: 40px;
-      margin-top: 10px;
-    }
-
-    .ai {
-      background: #020617;
-      border: 2px solid #38bdf8;
-    }
-
-    .good {
-      color: #22c55e;
-    }
-
-    .bad {
-      color: #ef4444;
-    }
-
-  </style>
+.ai {
+  border: 2px solid #38bdf8;
+}
+</style>
 </head>
+
 <body>
 
-<h1>🧠 Reinforcement Learning ICU Ventilator Game</h1>
-<p>Human and AI take turns adjusting ventilator settings. The AI learns from rewards.</p>
+<h1>🧠 RL Ventilator Control – Calibrated ICU Demo</h1>
+<p>Goal: SpO₂ 92–96% with lung-protective ventilation</p>
 
-<div class="icu">
+<div class="container">
 
-  <!-- HUMAN PANEL -->
-  <div class="panel">
-    <h2>👨‍⚕️ Human Doctor</h2>
+<!-- HUMAN -->
+<div class="card">
+<h2>👨‍⚕️ Human</h2>
 
-    <label>Oxygen (FiO₂)</label>
-    <input type="range" id="humanO2" min="21" max="100" value="40">
+<label>FiO₂ (%)</label>
+<input type="range" id="fio2" min="21" max="100" value="40">
 
-    <label>Pressure</label>
-    <input type="range" id="humanPressure" min="5" max="30" value="15">
+<label>Pressure (cmH₂O)</label>
+<input type="range" id="pressure" min="5" max="25" value="10">
 
-    <button onclick="humanTurn()">Apply Settings</button>
-  </div>
+<button onclick="humanTurn()">Apply</button>
+</div>
 
-  <!-- PATIENT -->
-  <div class="panel">
-    <h2>🫁 Patient</h2>
-    <div id="patient" class="patient">😮‍💨</div>
-    <div id="status" class="status">Breathing unstable</div>
-    <div id="feedback" class="feedback"></div>
-  </div>
+<!-- PATIENT -->
+<div class="card">
+<h2>🫁 Patient</h2>
+<div id="face" class="patient">😮‍💨</div>
+<p id="spo2">SpO₂: --%</p>
+<p id="pao2">PaO₂: -- mmHg</p>
+<p id="injury">Lung injury risk: --</p>
+<p id="feedback"></p>
+</div>
 
-  <!-- AI PANEL -->
-  <div class="panel ai">
-    <h2>🤖 AI Agent</h2>
-    <p>Learning from human decisions</p>
-    <button onclick="aiTurn()">AI Adjusts Ventilator</button>
-    <p id="aiKnowledge">Knowledge level: Low</p>
-  </div>
+<!-- AI -->
+<div class="card ai">
+<h2>🤖 AI Agent</h2>
+<p id="aiLevel">Learning: Low</p>
+<button onclick="aiTurn()">AI Adjusts</button>
+</div>
 
 </div>
 
 <script>
-  let aiO2 = 40;
-  let aiPressure = 15;
-  let aiSkill = 0; // learning progress
+let ai = {
+  fio2: 40,
+  pressure: 10,
+  skill: 0
+};
 
-  const OPTIMAL_O2 = 50;
-  const OPTIMAL_PRESSURE = 18;
+function simulatePatient(fio2, pressure) {
 
-  function evaluate(o2, pressure) {
-    const diff = Math.abs(o2 - OPTIMAL_O2) + Math.abs(pressure - OPTIMAL_PRESSURE);
-    return diff < 10 ? "good" : "bad";
+  // Oxygenation model (simplified)
+  let pao2 = (fio2 * 5) + (pressure * 4);
+  let spo2 = Math.min(100, Math.max(85, pao2 / 5));
+
+  // Lung injury risk
+  let injury = 0;
+  if (fio2 > 60) injury += 1;
+  if (pressure > 18) injury += 1;
+
+  // Reward
+  let reward = 0;
+  if (spo2 >= 92 && spo2 <= 96) reward += 2;
+  if (injury > 0) reward -= injury;
+
+  return { spo2, pao2, injury, reward };
+}
+
+function updateUI(result) {
+  document.getElementById("spo2").textContent = `SpO₂: ${result.spo2.toFixed(1)}%`;
+  document.getElementById("pao2").textContent = `PaO₂: ${result.pao2.toFixed(0)} mmHg`;
+  document.getElementById("injury").textContent =
+    "Lung injury risk: " + (result.injury ? "High ⚠️" : "Low");
+
+  if (result.reward > 0) {
+    document.getElementById("face").textContent = "😊";
+    document.getElementById("feedback").textContent = "👍 Good ventilation";
+    document.getElementById("feedback").className = "good";
+  } else {
+    document.getElementById("face").textContent = "😫";
+    document.getElementById("feedback").textContent = "👎 Poor ventilation";
+    document.getElementById("feedback").className = "bad";
   }
+}
 
-  function updatePatient(result) {
-    const patient = document.getElementById("patient");
-    const status = document.getElementById("status");
-    const feedback = document.getElementById("feedback");
+function humanTurn() {
+  const fio2 = Number(document.getElementById("fio2").value);
+  const pressure = Number(document.getElementById("pressure").value);
 
-    if (result === "good") {
-      patient.textContent = "😊";
-      status.textContent = "Breathing well";
-      status.className = "status good";
-      feedback.textContent = "👍";
-    } else {
-      patient.textContent = "😫";
-      status.textContent = "Breathing poorly";
-      status.className = "status bad";
-      feedback.textContent = "👎";
-    }
+  const result = simulatePatient(fio2, pressure);
+  updateUI(result);
+
+  // AI learns from reward
+  if (result.reward > 0) {
+    ai.fio2 = (ai.fio2 + fio2) / 2;
+    ai.pressure = (ai.pressure + pressure) / 2;
+    ai.skill++;
   }
+}
 
-  function humanTurn() {
-    const o2 = parseInt(document.getElementById("humanO2").value);
-    const pressure = parseInt(document.getElementById("humanPressure").value);
+function aiTurn() {
+  ai.fio2 += (50 - ai.fio2) * (0.2 + ai.skill * 0.1);
+  ai.pressure += (12 - ai.pressure) * (0.2 + ai.skill * 0.1);
 
-    const result = evaluate(o2, pressure);
-    updatePatient(result);
+  const result = simulatePatient(ai.fio2, ai.pressure);
+  updateUI(result);
 
-    // AI learns from human
-    if (result === "good") {
-      aiO2 = (aiO2 + o2) / 2;
-      aiPressure = (aiPressure + pressure) / 2;
-      aiSkill += 1;
-    }
-  }
+  if (result.reward > 0) ai.skill++;
 
-  function aiTurn() {
-    // AI explores less as skill increases
-    aiO2 += (OPTIMAL_O2 - aiO2) * (0.2 + aiSkill * 0.1);
-    aiPressure += (OPTIMAL_PRESSURE - aiPressure) * (0.2 + aiSkill * 0.1);
-
-    const result = evaluate(aiO2, aiPressure);
-    updatePatient(result);
-
-    if (result === "good") {
-      aiSkill += 1;
-    }
-
-    document.getElementById("aiKnowledge").textContent =
-      "Knowledge level: " + (aiSkill < 3 ? "Low" : aiSkill < 6 ? "Medium" : "Expert");
-  }
+  document.getElementById("aiLevel").textContent =
+    "Learning: " + (ai.skill < 3 ? "Low" : ai.skill < 6 ? "Medium" : "Expert");
+}
 </script>
 
 </body>
