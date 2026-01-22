@@ -1,265 +1,190 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>RL vs Human Benchmark – Ventilator Simulator</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>Reinforcement Learning ICU Ventilator Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
 
-<style>
-body {
-    font-family: "Segoe UI", Arial, sans-serif;
-    background: #eef2f3;
-    margin: 0;
-    padding: 0;
-    color: #333;
-}
-.container {
-    max-width: 1200px;
-    margin: auto;
-    padding: 20px;
-}
-h1, h2 {
-    text-align: center;
-    color: #4a2c1d;
-}
-.card {
-    background: white;
-    border-radius: 16px;
-    padding: 20px;
-    margin-top: 20px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-}
-.grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-.panel h3 {
-    text-align: center;
-    margin-bottom: 10px;
-}
-.vital {
-    margin: 10px 0;
-}
-.vital span {
-    float: right;
-    font-weight: bold;
-}
-.slider {
-    width: 100%;
-}
-.badge {
-    display: inline-block;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 14px;
-    color: white;
-}
-.ai { background: #7a4a2e; }
-.human { background: #2e6f7a; }
+    h1 {
+      color: #38bdf8;
+    }
 
-.stats {
-    background: #f5f7f9;
-    border-radius: 10px;
-    padding: 15px;
-    margin-top: 15px;
-    font-size: 15px;
-}
-button {
-    padding: 12px 18px;
-    font-size: 16px;
-    border-radius: 10px;
-    border: none;
-    cursor: pointer;
-    background: #7a4a2e;
-    color: white;
-}
-button:hover { background: #5d3722; }
+    .icu {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 30px;
+      flex-wrap: wrap;
+    }
 
-.center {
-    text-align: center;
-}
-.footer {
-    margin-top: 30px;
-    text-align: center;
-    font-size: 13px;
-    color: #777;
-}
-</style>
+    .panel {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 12px;
+      width: 300px;
+      margin: 10px;
+    }
+
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+
+    input[type=range] {
+      width: 100%;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 10px 15px;
+      border-radius: 8px;
+      border: none;
+      background: #22c55e;
+      color: black;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #16a34a;
+    }
+
+    .patient {
+      font-size: 80px;
+      margin-top: 20px;
+    }
+
+    .status {
+      font-size: 20px;
+      margin-top: 10px;
+    }
+
+    .feedback {
+      font-size: 40px;
+      margin-top: 10px;
+    }
+
+    .ai {
+      background: #020617;
+      border: 2px solid #38bdf8;
+    }
+
+    .good {
+      color: #22c55e;
+    }
+
+    .bad {
+      color: #ef4444;
+    }
+
+  </style>
 </head>
-
 <body>
-<div class="container">
 
-<h1>🫁 Ventilator Management Simulation</h1>
-<h2>Reinforcement Learning vs Rule-Based Human Benchmark</h2>
+<h1>🧠 Reinforcement Learning ICU Ventilator Game</h1>
+<p>Human and AI take turns adjusting ventilator settings. The AI learns from rewards.</p>
 
-<div class="card center">
-    <p>
-        This is a <strong>safe educational simulation</strong>.  
-        The AI learns by trial-and-error.  
-        The human benchmark uses fixed ICU-style rules.
-    </p>
-    <button onclick="startSimulation()">Start Simulation</button>
-</div>
+<div class="icu">
 
-<div class="card hidden" id="simCard">
+  <!-- HUMAN PANEL -->
+  <div class="panel">
+    <h2>👨‍⚕️ Human Doctor</h2>
 
-<div class="grid">
+    <label>Oxygen (FiO₂)</label>
+    <input type="range" id="humanO2" min="21" max="100" value="40">
 
-<!-- AI PANEL -->
-<div class="panel">
-    <h3><span class="badge ai">AI (RL Agent)</span></h3>
+    <label>Pressure</label>
+    <input type="range" id="humanPressure" min="5" max="30" value="15">
 
-    <div class="vital">Tidal Volume (ml): <span id="ai_tv">–</span></div>
-    <input type="range" min="300" max="700" step="10" class="slider" id="ai_tv_slider" disabled>
+    <button onclick="humanTurn()">Apply Settings</button>
+  </div>
 
-    <div class="vital">PEEP (cmH₂O): <span id="ai_peep">–</span></div>
-    <input type="range" min="5" max="15" step="1" class="slider" id="ai_peep_slider" disabled>
+  <!-- PATIENT -->
+  <div class="panel">
+    <h2>🫁 Patient</h2>
+    <div id="patient" class="patient">😮‍💨</div>
+    <div id="status" class="status">Breathing unstable</div>
+    <div id="feedback" class="feedback"></div>
+  </div>
 
-    <div class="vital">FiO₂ (%): <span id="ai_fio2">–</span></div>
-    <input type="range" min="30" max="100" step="5" class="slider" id="ai_fio2_slider" disabled>
-
-    <div class="stats">
-        Oxygenation: <strong id="ai_o2">–</strong>%<br>
-        Lung Stress: <strong id="ai_stress">–</strong><br>
-        Reward: <strong id="ai_reward">0</strong>
-    </div>
-</div>
-
-<!-- HUMAN PANEL -->
-<div class="panel">
-    <h3><span class="badge human">Human (Rule-Based)</span></h3>
-
-    <div class="vital">Tidal Volume (ml): <span id="h_tv">–</span></div>
-    <div class="vital">PEEP (cmH₂O): <span id="h_peep">–</span></div>
-    <div class="vital">FiO₂ (%): <span id="h_fio2">–</span></div>
-
-    <div class="stats">
-        Oxygenation: <strong id="h_o2">–</strong>%<br>
-        Lung Stress: <strong id="h_stress">–</strong><br>
-        Score: <strong id="h_reward">0</strong>
-    </div>
-</div>
-
-</div>
-
-<div class="center" style="margin-top:20px">
-    <button onclick="step()">Next Episode</button>
-</div>
-
-</div>
-
-<div class="card hidden" id="resultCard">
-    <h2>🏁 Results</h2>
-    <p id="resultsText"></p>
-</div>
-
-<div class="footer">
-    Educational RL demonstration • Not a clinical device
-</div>
+  <!-- AI PANEL -->
+  <div class="panel ai">
+    <h2>🤖 AI Agent</h2>
+    <p>Learning from human decisions</p>
+    <button onclick="aiTurn()">AI Adjusts Ventilator</button>
+    <p id="aiKnowledge">Knowledge level: Low</p>
+  </div>
 
 </div>
 
 <script>
-// ------------------ Patient Model ------------------
-function newPatient() {
-    return {
-        oxygenation: 75 + Math.random()*10,
-        lungStress: 40 + Math.random()*20
-    };
-}
+  let aiO2 = 40;
+  let aiPressure = 15;
+  let aiSkill = 0; // learning progress
 
-function updatePatient(state, tv, peep, fio2) {
-    state.oxygenation += (fio2/100)*5 + (peep-8)*0.8 - Math.abs(tv-500)/120;
-    state.lungStress += Math.abs(tv-500)/80 + peep*0.6;
-    state.oxygenation = Math.min(100, Math.max(60, state.oxygenation));
-    state.lungStress = Math.min(100, Math.max(20, state.lungStress));
-}
+  const OPTIMAL_O2 = 50;
+  const OPTIMAL_PRESSURE = 18;
 
-// ------------------ Human Rule-Based Policy ------------------
-function humanPolicy(state) {
-    let tv = 500;
-    let peep = state.oxygenation < 88 ? 10 : 8;
-    let fio2 = state.oxygenation < 88 ? 60 : 40;
-    return {tv, peep, fio2};
-}
+  function evaluate(o2, pressure) {
+    const diff = Math.abs(o2 - OPTIMAL_O2) + Math.abs(pressure - OPTIMAL_PRESSURE);
+    return diff < 10 ? "good" : "bad";
+  }
 
-// ------------------ RL Agent ------------------
-class RLAgent {
-    act(state) {
-        return {
-            tv: 450 + Math.random()*100,
-            peep: 6 + Math.random()*6,
-            fio2: 40 + Math.random()*40
-        };
+  function updatePatient(result) {
+    const patient = document.getElementById("patient");
+    const status = document.getElementById("status");
+    const feedback = document.getElementById("feedback");
+
+    if (result === "good") {
+      patient.textContent = "😊";
+      status.textContent = "Breathing well";
+      status.className = "status good";
+      feedback.textContent = "👍";
+    } else {
+      patient.textContent = "😫";
+      status.textContent = "Breathing poorly";
+      status.className = "status bad";
+      feedback.textContent = "👎";
     }
-}
+  }
 
-let aiAgent, patientAI, patientHuman;
-let aiScore = 0, humanScore = 0, episode = 0;
+  function humanTurn() {
+    const o2 = parseInt(document.getElementById("humanO2").value);
+    const pressure = parseInt(document.getElementById("humanPressure").value);
 
-function startSimulation() {
-    document.querySelectorAll(".hidden").forEach(e=>e.classList.remove("hidden"));
-    aiAgent = new RLAgent();
-    patientAI = newPatient();
-    patientHuman = JSON.parse(JSON.stringify(patientAI));
-    episode = 0;
-    aiScore = 0;
-    humanScore = 0;
-    step();
-}
+    const result = evaluate(o2, pressure);
+    updatePatient(result);
 
-function step() {
-    episode++;
+    // AI learns from human
+    if (result === "good") {
+      aiO2 = (aiO2 + o2) / 2;
+      aiPressure = (aiPressure + pressure) / 2;
+      aiSkill += 1;
+    }
+  }
 
-    // AI
-    let aiAction = aiAgent.act(patientAI);
-    updatePatient(patientAI, aiAction.tv, aiAction.peep, aiAction.fio2);
-    let aiReward = patientAI.oxygenation - patientAI.lungStress;
-    aiScore += aiReward;
+  function aiTurn() {
+    // AI explores less as skill increases
+    aiO2 += (OPTIMAL_O2 - aiO2) * (0.2 + aiSkill * 0.1);
+    aiPressure += (OPTIMAL_PRESSURE - aiPressure) * (0.2 + aiSkill * 0.1);
 
-    // Human
-    let hAction = humanPolicy(patientHuman);
-    updatePatient(patientHuman, hAction.tv, hAction.peep, hAction.fio2);
-    let hReward = patientHuman.oxygenation - patientHuman.lungStress;
-    humanScore += hReward;
+    const result = evaluate(aiO2, aiPressure);
+    updatePatient(result);
 
-    updateUI(aiAction, hAction, aiReward, hReward);
+    if (result === "good") {
+      aiSkill += 1;
+    }
 
-    if (episode >= 12) finish();
-}
-
-function updateUI(ai, h, aiR, hR) {
-    ai_tv.textContent = ai.tv.toFixed(0);
-    ai_peep.textContent = ai.peep.toFixed(1);
-    ai_fio2.textContent = ai.fio2.toFixed(0);
-    ai_o2.textContent = patientAI.oxygenation.toFixed(0);
-    ai_stress.textContent = patientAI.lungStress.toFixed(0);
-    ai_reward.textContent = aiScore.toFixed(1);
-
-    ai_tv_slider.value = ai.tv;
-    ai_peep_slider.value = ai.peep;
-    ai_fio2_slider.value = ai.fio2;
-
-    h_tv.textContent = h.tv;
-    h_peep.textContent = h.peep;
-    h_fio2.textContent = h.fio2;
-    h_o2.textContent = patientHuman.oxygenation.toFixed(0);
-    h_stress.textContent = patientHuman.lungStress.toFixed(0);
-    h_reward.textContent = humanScore.toFixed(1);
-}
-
-function finish() {
-    resultCard.classList.remove("hidden");
-    resultsText.innerHTML = `
-        <strong>AI total score:</strong> ${aiScore.toFixed(1)}<br>
-        <strong>Human benchmark score:</strong> ${humanScore.toFixed(1)}<br><br>
-        The AI explores a broader range of strategies, while the human policy is conservative and rule-based.
-        <br><br>
-        <em>This demonstrates how reinforcement learning can adapt beyond fixed rules — in simulation.</em>
-    `;
-}
+    document.getElementById("aiKnowledge").textContent =
+      "Knowledge level: " + (aiSkill < 3 ? "Low" : aiSkill < 6 ? "Medium" : "Expert");
+  }
 </script>
+
 </body>
 </html>
